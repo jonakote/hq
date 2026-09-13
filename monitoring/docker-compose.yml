@@ -4,7 +4,7 @@ services:
   loki:
     image: grafana/loki:3.6.16
     ports:
-      - "127.0.0.1:3100:3100"
+      - "3100:3100"
     volumes:
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
