@@ -1,0 +1,14 @@
+# Optional non-secret configuration template.
+# After setup, merge desired settings into /hermes/data/config.yaml.
+
+terminal:
+  cwd: /workspace
+  backend: local
+  persistent_shell: true
+
+database:
+  journal_mode: wal
+
+dashboard:
+  theme: default
+

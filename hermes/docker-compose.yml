@@ -1,0 +1,50 @@
+services:
+  hermes:
+    image: "nousresearch/hermes-agent:v2026.9.14"
+    container_name: hermes
+    restart: unless-stopped
+    command: ["gateway", "run"]
+    working_dir: /workspace
+    ports:
+      - "127.0.0.1:8642:8642"
+      - "127.0.0.1:9119:9119"
+
+    volumes:
+      - hermes-data/data:/opt/data"
+      - hermes-data/.hermes:~/.hermes/"
+      - ~/workspace:/workspace"
+
+    env_file:
+      - ./.env 
+
+    environment:
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_HOST: "0.0.0.0"
+      HERMES_DASHBOARD_PORT: "9119"
+      API_SERVER_ENABLED: "true"
+      API_SERVER_HOST: "0.0.0.0"
+      API_SERVER_KEY: "${API_SERVER_KEY:?Set API_SERVER_KEY in hermes/.env}"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_DASHBOARD_BASIC_AUTH_USERNAME:?Set dashboard username in hermes/.env}"
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD:?Set dashboard password in hermes/.env}"
+      HERMES_DASHBOARD_BASIC_AUTH_SECRET: "${HERMES_DASHBOARD_BASIC_AUTH_SECRET:?Set dashboard session secret in hermes/.env}"
+
+    # Recommended by the official Docker documentation for browser tooling.
+    shm_size: "1gb"
+
+  # Run the official interactive setup wizard once before starting the gateway.
+  # It writes provider credentials and Hermes configuration into ./data.
+  hermes-setup:
+    profiles: ["setup"]
+    image: "nousresearch/hermes-agent:v2026.9.14"
+    container_name: hermes-setup
+    command: ["setup"]
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    env_file:
+      - ./.env
+    volumes:
+      hermes-data:
+
+volumes:
+  hermes-data:
