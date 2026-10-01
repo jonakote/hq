@@ -1,50 +1,56 @@
 services:
   hermes:
-    image: "nousresearch/hermes-agent:v2026.9.14"
-    container_name: hermes
+    image: "nousresearch/hermes-agent:latest"
+    container_name: hermes-agent
     restart: unless-stopped
-    command: ["gateway", "run"]
-    working_dir: /workspace
+    command: gateway run
     ports:
-      - "127.0.0.1:8642:8642"
-      - "127.0.0.1:9119:9119"
-
+      - "8642:8642"
+      - "9119:9119"
     volumes:
-      - hermes-data/data:/opt/data"
-      - hermes-data/.hermes:~/.hermes/"
-      - ~/workspace:/workspace"
+      - ~/.hermes:/opt/data
+    env:
+      API_SERVER_ENABLED: "${API_SERVER_ENABLED:-true}"
+      API_SERVER_HOST: 0.0.0.0
+      API_SERVER_KEY: "${API_SERVER_KEY:-}"
+      API_SERVER_CORS_ORIGINS: "*"
+      HERMES_UID: '10010'
+      HERMES_DASHBOARD: '1'
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: '9119'
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:8642/health && curl -fsS http://localhost:9119/api/status || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
-    env_file:
-      - ./.env 
-
+  hermes-workspace:
+    image: ghcr.io/outsourc-e/hermes-workspace:latest
+    container_name: hermes-workspace
+    restart: unless-stopped
+    depends_on:
+      hermes-agent:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - workspace-files:/workspace
+      - ~/.hermes:/home/workspace/.hermes
     environment:
-      HERMES_DASHBOARD: "1"
-      HERMES_DASHBOARD_HOST: "0.0.0.0"
-      HERMES_DASHBOARD_PORT: "9119"
-      API_SERVER_ENABLED: "true"
-      API_SERVER_HOST: "0.0.0.0"
-      API_SERVER_KEY: "${API_SERVER_KEY:?Set API_SERVER_KEY in hermes/.env}"
-      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_DASHBOARD_BASIC_AUTH_USERNAME:?Set dashboard username in hermes/.env}"
-      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD:?Set dashboard password in hermes/.env}"
-      HERMES_DASHBOARD_BASIC_AUTH_SECRET: "${HERMES_DASHBOARD_BASIC_AUTH_SECRET:?Set dashboard session secret in hermes/.env}"
-
-    # Recommended by the official Docker documentation for browser tooling.
-    shm_size: "1gb"
-
-  # Run the official interactive setup wizard once before starting the gateway.
-  # It writes provider credentials and Hermes configuration into ./data.
-  hermes-setup:
-    profiles: ["setup"]
-    image: "nousresearch/hermes-agent:v2026.9.14"
-    container_name: hermes-setup
-    command: ["setup"]
-    working_dir: /workspace
-    stdin_open: true
-    tty: true
-    env_file:
-      - ./.env
-    volumes:
-      hermes-data:
+      HERMES_API_URL: http://hermes-agent:8642 
+      HERMES_DASHBOARD_URL: http://hermes-agent:9119
+      HERMES_API_TOKEN: "${API_SERVER_KEY}"
+      HERMES_HOME: /home/workspace/.hermes
+      HERMES_WORKSPACE_DIR: /workspace
+      HERMES_PASSWORD: ${HERMES_PASSWORD:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:8642/health && curl -fsS http://localhost:9119/api/status || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
-  hermes-data:
+  workspace-files:
