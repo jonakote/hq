@@ -30,7 +30,7 @@ services:
     container_name: hermes-workspace
     restart: unless-stopped
     depends_on:
-      hermes-agent:
+      hermes:
         condition: service_healthy
     ports:
       - "3000:3000"
