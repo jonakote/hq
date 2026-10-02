@@ -26,9 +26,7 @@ services:
       start_period: 30s
 
   hermes-workspace:
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/outsourc-e/hermes-workspace:latest
     container_name: hermes-workspace
     restart: unless-stopped
     depends_on:
