@@ -10,28 +10,16 @@ services:
       - hermes-data:/opt/data
     environment:
       API_SERVER_ENABLED: "${API_SERVER_ENABLED:-true}"
-      API_SERVER_KEY: "${API_SERVER_KEY:-1234567890}"
+      API_SERVER_KEY: "${API_SERVER_KEY:-local-hermes-api-key-change-me}"
+      API_SERVER_HOST: 0.0.0.0
       API_SERVER_CORS_ORIGINS: "*"
-      HERMES_DASHBOARD_HOST: 127.0.0.1
+      HERMES_DASHBOARD_HOST: 0.0.0.0
+      HERMES_DASHBOARD_PORT: '9119'
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_USERNAME:-admin}"
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_PASSWORD:-12345467890}"
       HERMES_UID: '10010'
       HERMES_DASHBOARD: '1'
-      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_USERNAME:-admin}"
-      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_PASSWORD:-1234567890}"
-    command:
-      - /bin/sh
-      - -c
-      - |
-        echo "Starting Hermes Gateway..."
-        mkdir -p /opt/data
-        python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('${HERMES_PASSWORD}'))" > /tmp/hermes_password_hash
-        cat > /opt/data/config.yaml <<EOF
-        dashboard:
-          basic_auth:
-            username: admin
-            password_hash: $(cat /tmp/hermes_password_hash)
-        EOF
-        echo "Dashboard authentication configured."
-        exec hermes gateway run
+    command: ["gateway", "run"]
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8642/health && curl -fsS http://127.0.0.1:9119/api/status || exit 1']
       interval: 10s
@@ -54,11 +42,11 @@ services:
     environment:
       HERMES_API_URL: http://hermes:8642 
       HERMES_DASHBOARD_URL: http://hermes:9119
-      HERMES_API_TOKEN: "${API_SERVER_KEY:-1234567890}"
+      HERMES_API_TOKEN: "${API_SERVER_KEY:-local-hermes-api-key-change-me}"
       HERMES_HOME: /home/workspace/.hermes
       HERMES_WORKSPACE_DIR: /workspace
       HERMES_PASSWORD: ${HERMES_PASSWORD:-12345467890}
-      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
       NODE_ENV: production
       GATEWAY_ALLOW_ALL_USERS: true
     healthcheck:
