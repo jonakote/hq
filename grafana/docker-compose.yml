@@ -1,8 +1,8 @@
 services:
   loki:
     image: grafana/loki:3.6.16
-    ports:
-      - "3100:3100"
+    expose:
+      - "3100"
     volumes:
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
@@ -15,8 +15,8 @@ services:
 
   grafana:
     image: grafana/grafana:13.0.8
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       GF_SECURITY_ADMIN_USER: "${GF_SECURITY_ADMIN_USER:-admin}"
       GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-admin}"
