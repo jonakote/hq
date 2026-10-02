@@ -1,22 +1,23 @@
 services:
   hermes:
     image: "nousresearch/hermes-agent:latest"
-    container_name: hermes-agent
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:8642:8642"
-      - "127.0.0.1:9119:9119"
+    # Coolify's proxy handles public HTTPS. Keep Hermes private and expose
+    # only its internal ports to the Compose network.
+    port:
+      - "8642:8642"
+      - "9119:9119"
     volumes:
       - hermes-data:/opt/data
     environment:
       API_SERVER_ENABLED: "${API_SERVER_ENABLED:-true}"
-      API_SERVER_KEY: "${API_SERVER_KEY:-local-hermes-api-key-change-me}"
+      API_SERVER_KEY: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
       API_SERVER_HOST: 0.0.0.0
       API_SERVER_CORS_ORIGINS: "*"
       HERMES_DASHBOARD_HOST: 0.0.0.0
       HERMES_DASHBOARD_PORT: '9119'
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_USERNAME:-admin}"
-      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_PASSWORD:-12345467890}"
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
       HERMES_UID: '10010'
       HERMES_DASHBOARD: '1'
     command: ["gateway", "run"]
@@ -29,7 +30,6 @@ services:
 
   hermes-workspace:
     image: ghcr.io/outsourc-e/hermes-workspace:latest
-    container_name: hermes-workspace
     restart: unless-stopped
     depends_on:
       hermes:
@@ -42,11 +42,13 @@ services:
     environment:
       HERMES_API_URL: http://hermes:8642 
       HERMES_DASHBOARD_URL: http://hermes:9119
-      HERMES_API_TOKEN: "${API_SERVER_KEY:-local-hermes-api-key-change-me}"
+      HERMES_API_TOKEN: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
       HERMES_HOME: /home/workspace/.hermes
       HERMES_WORKSPACE_DIR: /workspace
-      HERMES_PASSWORD: ${HERMES_PASSWORD:-12345467890}
-      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      HERMES_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-1}"
+      TRUST_PROXY: "${TRUST_PROXY:-1}"
+      HOST: 0.0.0.0
       NODE_ENV: production
       GATEWAY_ALLOW_ALL_USERS: true
     healthcheck:
