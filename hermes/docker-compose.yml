@@ -18,15 +18,7 @@ services:
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_USERNAME:-admin}"
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_PASSWORD:-}"
     command:
-      - /bin/sh
-      - -c
-      - |
-        echo "Running Hermes post-deployment configuration..."
-        mkdir -p /home/workspace/.hermes
-        echo "NODE_ENV=$${NODE_ENV}" > /opt/data/.env
-        echo "COOKIE_SECURE=$${COOKIE_SECURE}" >> /opt/data/.env
-        echo "Post-deployment configuration complete."
-        gateway run
+        - gateway run
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8642/health && curl -fsS http://127.0.0.1:9119/api/status || exit 1']
       interval: 10s
@@ -56,6 +48,15 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-1}
       NODE_ENV: production
       GATEWAY_ALLOW_ALL_USERS: true
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo "Running Hermes post-deployment configuration..."
+        mkdir -p /home/workspace/.hermes
+        echo "NODE_ENV=$${NODE_ENV}" > .env
+        echo "COOKIE_SECURE=$${COOKIE_SECURE}" >> .env
+        echo "Post-deployment configuration complete."
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000/ || exit 1']
       interval: 10s
