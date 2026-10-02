@@ -2,11 +2,10 @@ services:
   hermes:
     image: "nousresearch/hermes-agent:latest"
     restart: unless-stopped
-    # Coolify's proxy handles public HTTPS. Keep Hermes private and expose
-    # only its internal ports to the Compose network.
-    ports:
-      - "8642:8642"
-      - "9119:9119"
+    # Keep Hermes private; only the Workspace service receives a Coolify domain.
+    expose:
+      - "8642"
+      - "9119"
     volumes:
       - hermes-data:/opt/data
     environment:
@@ -34,8 +33,8 @@ services:
     depends_on:
       hermes:
         condition: service_healthy
-    ports:
-      - "3001:3000"
+    expose:
+      - "3000"
     volumes:
       - workspace-files:/workspace
       - hermes-data:/home/workspace/.hermes
