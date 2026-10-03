@@ -17,7 +17,7 @@ services:
       HERMES_DASHBOARD_PORT: '9119'
       HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_USERNAME:-admin}"
       HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
-      HERMES_DASHBOARD_BASIC_AUTH_SECRET: "${HERMES_DASHBOARD_BASIC_AUTH_SECRET:?Set this in Coolify}"
+      HERMES_DASHBOARD_TOKEN: "${API_SERVER_KEY:?Set this in Coolify}"
       HERMES_UID: '10010'
       HERMES_DASHBOARD: '1'
     command: ["gateway", "run"]
@@ -41,13 +41,14 @@ services:
       - hermes-data:/home/workspace/.hermes
     environment:
       HERMES_API_URL: http://hermes:8642 
-      HERMES_DASHBOARD_URL: http://hermes:9119
       HERMES_API_TOKEN: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
+      HERMES_DASHBOARD_URL: http://hermes:9119
+      HERMES_DASHBOARD_TOKEN: "${API_SERVER_KEY:?Set this in Coolify}"
+      HERMES_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
       HERMES_HOME: /home/workspace/.hermes
       HERMES_WORKSPACE_DIR: /workspace
-      HERMES_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
       COOKIE_SECURE: '1'
-      TRUST_PROXY: "${TRUST_PROXY:-1}"
+      TRUST_PROXY: '1'
       HOST: 0.0.0.0
       NODE_ENV: production
       GATEWAY_ALLOW_ALL_USERS: true
