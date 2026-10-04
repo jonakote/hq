@@ -6,6 +6,7 @@ services:
     expose:
       - "8642"
       - "9119"
+      - "3000"
     volumes:
       - hermes-data:/opt/data
     environment:
@@ -31,8 +32,6 @@ services:
       hermes:
         condition: service_healthy
     network_mode: "service:hermes"
-    expose:
-      - "3000"
     volumes:
       - workspace-files:/workspace
       - hermes-data:/home/workspace/.hermes
