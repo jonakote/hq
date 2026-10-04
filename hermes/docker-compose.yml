@@ -11,11 +11,10 @@ services:
       - hermes-data:/opt/data
     environment:
       API_SERVER_ENABLED: "${API_SERVER_ENABLED:-true}"
-      API_SERVER_KEY: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
+      API_SERVER_KEY: "${API_SERVER_KEY:-123456789}"
       API_SERVER_CORS_ORIGINS: "*"
       HERMES_DASHBOARD_HOST: "127.0.0.1"
       HERMES_DASHBOARD_PORT: '9119'
-      HERMES_DASHBOARD_TOKEN: "${API_SERVER_KEY:?Set this in Coolify}"
       HERMES_UID: '10010'
       HERMES_DASHBOARD: '1'
     command: ["gateway", "run"]
@@ -38,9 +37,9 @@ services:
       - hermes-data:/home/workspace/.hermes
     environment:
       HERMES_API_URL: http://127.0.0.1:8642 
-      HERMES_API_TOKEN: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
+      HERMES_API_TOKEN: "${API_SERVER_KEY:-123456789}"
       HERMES_DASHBOARD_URL: http://127.0.0.1:9119
-      HERMES_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
+      HERMES_PASSWORD: "${HERMES_PASSWORD:-123456789}"
       HERMES_HOME: /home/workspace/.hermes
       HERMES_WORKSPACE_DIR: /workspace
       COOKIE_SECURE: '1'
