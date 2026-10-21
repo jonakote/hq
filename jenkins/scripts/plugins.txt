@@ -1,0 +1,36 @@
+# Jenkins Plugins
+# Add one plugin per line (format: plugin-name or plugin-name:version)
+# These will be pre-installed on first startup
+
+# Core plugins
+workflow-aggregator
+git
+configuration-as-code
+job-dsl
+credentials-binding
+timestamper
+
+# Pipeline plugins
+pipeline-stage-view
+pipeline-utility-steps
+pipeline-graph-analysis
+
+# Docker plugins
+docker-workflow
+docker-plugin
+
+# UI plugins
+blueocean
+dashboard-view
+simple-theme-plugin
+
+# Utility plugins
+ssh-agent
+ansicolor
+greenballs
+rebuild
+
+# Notification plugins
+email-ext
+slack
+mailer

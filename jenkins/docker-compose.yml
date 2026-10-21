@@ -1,0 +1,27 @@
+# Jenkins Master - Docker Compose
+# Basic Jenkins master setup with persistent storage
+
+services:
+  jenkins:
+    image: jenkins/jenkins:${JENKINS_VERSION:-lts}
+    container_name: jenkins-master
+    restart: unless-stopped    
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      - "${AGENT_PORT:-5000}:5000"
+    environment:
+      - JAVA_OPTS=${JAVA_OPTS:--Xmx2g -Xms512m}
+      - JENKINS_OPTS=--httpPort=8080
+      - TZ=${TZ:-UTC}
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  jenkins-home:
