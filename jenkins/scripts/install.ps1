@@ -345,7 +345,7 @@ function Invoke-Run {
         Write-Info "Starting Jenkins agent '$($config.AGENT_NAME)' in detached mode..."
 
         $process = Start-Process -FilePath $config.JAVA_PATH `
-            -ArgumentList "-jar `"$($config.AGENT_JAR)`" -jnlpUrl `"$($config.JENKINS_URL)/computer/$($config.AGENT_NAME)/jenkins-agent.jnlp`" -secret `"$($config.AGENT_SECRET)`" -workDir `"$($config.WORK_DIR)`" -webSocket" `
+            -ArgumentList "-jar `"$($config.AGENT_JAR)`" -url `"$($config.JENKINS_URL)`" -name `"$($config.AGENT_NAME)`" -secret `"$($config.AGENT_SECRET)`" -workDir `"$($config.WORK_DIR)`" -jar-cache `"$($config.WORK_DIR)\remoting\jarCache`" -webSocket" `
             -RedirectStandardOutput $config.LOG_FILE `
             -RedirectStandardError (Join-Path $config.LOG_DIR "agent-error.log") `
             -WindowStyle Hidden `
@@ -374,9 +374,11 @@ function Invoke-Run {
         Write-Host ""
 
         & $config.JAVA_PATH -jar $config.AGENT_JAR `
-            -jnlpUrl "$($config.JENKINS_URL)/computer/$($config.AGENT_NAME)/jenkins-agent.jnlp" `
+            -url $config.JENKINS_URL `
+            -name $config.AGENT_NAME `
             -secret $config.AGENT_SECRET `
             -workDir $config.WORK_DIR `
+            -jar-cache (Join-Path $config.WORK_DIR "remoting\jarCache") `
             -webSocket
     }
 }
@@ -578,7 +580,8 @@ function Install-WindowsService {
     $serviceName = "jenkins-agent"
     $displayName = "Jenkins Agent"
     $description = "Jenkins CI agent node"
-    $binPath = "`"$JavaPath`" -jar `"$AgentJar`" -jnlpUrl `"$($config.JENKINS_URL)/computer/$($config.AGENT_NAME)/jenkins-agent.jnlp`" -secret `"$($config.AGENT_SECRET)`" -workDir `"$($config.WORK_DIR)`" -webSocket"
+    $jarCache = Join-Path $config.WORK_DIR "remoting\jarCache"
+    $binPath = "`"$JavaPath`" -jar `"$AgentJar`" -url `"$($config.JENKINS_URL)`" -name `"$($config.AGENT_NAME)`" -secret `"$($config.AGENT_SECRET)`" -workDir `"$($config.WORK_DIR)`" -jar-cache `"$jarCache`" -webSocket"
 
     try {
         # Create the service

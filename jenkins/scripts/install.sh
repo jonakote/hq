@@ -55,23 +55,32 @@ prompt_default() {
     local result
 
     if [ -n "$default" ]; then
-        echo -en "${BOLD}${prompt}${NC} [${GREEN}${default}${NC}]: "
+        echo -en "${BOLD}${prompt}${NC} [${GREEN}${default}${NC}]: " >&2
     else
-        echo -en "${BOLD}${prompt}${NC}: "
+        echo -en "${BOLD}${prompt}${NC}: " >&2
     fi
 
     read -r result
     echo "${result:-$default}"
 }
 
+expand_home_path() {
+    local path="$1"
+    case "$path" in
+        "~")      path="$HOME" ;;
+        "~/"*)    path="$HOME/${path:2}" ;;
+    esac
+    printf '%s\n' "$path"
+}
+
 prompt_secret() {
     local prompt="$1"
     local result
 
-    echo -en "${BOLD}${prompt}${NC}: "
+    echo -en "${BOLD}${prompt}${NC}: " >&2
     if [[ -t 0 ]]; then
         read -rs result
-        echo ""
+        echo "" >&2
     else
         read -r result
     fi
@@ -138,6 +147,37 @@ find_java() {
     fi
 
     return 1
+}
+
+ensure_work_dir_owner() {
+    local work_dir="$1"
+    local agent_user="${SUDO_USER:-$(id -un)}"
+    local current_owner
+
+    current_owner="$(stat -f '%Su' "$work_dir" 2>/dev/null || stat -c '%U' "$work_dir" 2>/dev/null || true)"
+    if [[ -z "$current_owner" ]]; then
+        error "Could not determine the owner of the agent work directory: $work_dir"
+        return 1
+    fi
+
+    if [[ "$current_owner" != "$agent_user" ]]; then
+        info "Changing ownership of the agent work directory to '$agent_user'..."
+        if [[ "$EUID" -eq 0 ]]; then
+            chown -R "$agent_user" "$work_dir"
+        elif command -v sudo &>/dev/null; then
+            sudo chown -R "$agent_user" "$work_dir"
+        else
+            error "Ownership change requires root privileges (sudo)."
+            return 1
+        fi
+    fi
+
+    if [[ ! -r "$work_dir" || ! -w "$work_dir" || ! -x "$work_dir" ]]; then
+        error "Agent user '$agent_user' still cannot fully access: $work_dir"
+        return 1
+    fi
+
+    success "Agent work directory is owned by '$agent_user' and is accessible"
 }
 
 # ── Main Installer ───────────────────────────────────────────────────────────
@@ -211,6 +251,7 @@ main() {
 
     local work_dir
     work_dir="$(prompt_default "Agent work directory" "$WORK_DIR")"
+    work_dir="$(expand_home_path "$work_dir")"
 
     # ── Service Installation ─────────────────────────────────────────────
     header "Step 4/5: System Service"
@@ -244,6 +285,7 @@ main() {
     # Create directories
     info "Creating directories..."
     mkdir -p "$INSTALL_DIR" "$work_dir" "$LOG_DIR"
+    ensure_work_dir_owner "$work_dir" || exit 1
 
     # Download agent.jar
     local jnlp_url="${jenkins_url}/jnlpJars/agent.jar"
@@ -286,7 +328,7 @@ EOF
     # Install system service
     if [[ "$install_service" == "y" ]]; then
         info "Installing system service..."
-        install_service "$OS_TYPE" "$agent_name" "$java_path"
+        install_service "$OS_TYPE" "$agent_name" "$java_path" "$work_dir"
     fi
 
     # ── Done ─────────────────────────────────────────────────────────────
@@ -363,6 +405,7 @@ load_config() {
 
 cmd_run() {
     load_config
+    check_work_dir_access || exit 1
     local detached=false
 
     while [[ $# -gt 0 ]]; do
@@ -389,14 +432,53 @@ cmd_run_foreground() {
 
     echo -e "${BLUE}[INFO]${NC}  Starting Jenkins agent '${AGENT_NAME}'..."
     echo -e "${BLUE}[INFO]${NC}  Connecting to ${JENKINS_URL}"
-    echo -e "${BLUE}[INFO]${NC}  Press Ctrl+C to stop"
+    echo -e "${BLUE}[INFO]${NC}  Press d or q to stop gracefully, or Ctrl+C to interrupt"
     echo ""
 
-    "$JAVA_PATH" -jar "$AGENT_JAR" \
-        -jnlpUrl "${JENKINS_URL}/computer/${AGENT_NAME}/jenkins-agent.jnlp" \
-        -secret "$AGENT_SECRET" \
-        -workDir "$WORK_DIR" \
+    local -a agent_args=(
+        -jar "$AGENT_JAR"
+        -url "$JENKINS_URL"
+        -name "$AGENT_NAME"
+        -secret "$AGENT_SECRET"
+        -workDir "$WORK_DIR"
+        -jar-cache "$WORK_DIR/remoting/jarCache"
         -webSocket
+    )
+
+    # Without a terminal, leave Java in the foreground as usual.
+    if [[ ! -t 0 || ! -t 1 ]]; then
+        "$JAVA_PATH" "${agent_args[@]}"
+        return $?
+    fi
+
+    local old_stty agent_pid key
+    old_stty="$(stty -g)"
+    stty -echo -icanon
+
+    "$JAVA_PATH" "${agent_args[@]}" </dev/null &
+    agent_pid=$!
+
+    # Restore terminal state and shut down Java cleanly if interrupted.
+    trap 'stty "$old_stty" 2>/dev/null || true; kill -TERM "$agent_pid" 2>/dev/null || true; wait "$agent_pid" 2>/dev/null || true; exit 130' INT
+    trap 'stty "$old_stty" 2>/dev/null || true; kill -TERM "$agent_pid" 2>/dev/null || true; wait "$agent_pid" 2>/dev/null || true; exit 143' TERM
+
+    while kill -0 "$agent_pid" 2>/dev/null; do
+        key=""
+        if IFS= read -r -s -n 1 -t 0.2 key; then
+            case "$key" in
+                d|D|q|Q)
+                    echo ""
+                    info "Gracefully stopping Jenkins agent..."
+                    kill -TERM "$agent_pid" 2>/dev/null || true
+                    break
+                    ;;
+            esac
+        fi
+    done
+
+    stty "$old_stty" 2>/dev/null || true
+    trap - INT TERM
+    wait "$agent_pid"
 }
 
 cmd_run_detached() {
@@ -408,9 +490,11 @@ cmd_run_detached() {
     echo -e "${BLUE}[INFO]${NC}  Starting Jenkins agent '${AGENT_NAME}' in detached mode..."
 
     nohup "$JAVA_PATH" -jar "$AGENT_JAR" \
-        -jnlpUrl "${JENKINS_URL}/computer/${AGENT_NAME}/jenkins-agent.jnlp" \
+        -url "$JENKINS_URL" \
+        -name "$AGENT_NAME" \
         -secret "$AGENT_SECRET" \
         -workDir "$WORK_DIR" \
+        -jar-cache "$WORK_DIR/remoting/jarCache" \
         -webSocket \
         >> "$LOG_FILE" 2>&1 &
 
@@ -630,6 +714,19 @@ is_running() {
     [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
+check_work_dir_access() {
+    if [[ ! -d "$WORK_DIR" || ! -r "$WORK_DIR" || ! -w "$WORK_DIR" || ! -x "$WORK_DIR" ]]; then
+        error "Agent work directory is not fully accessible: $WORK_DIR"
+        info "The agent user needs read, write, and execute permissions on this directory."
+        local owner
+        owner="$(stat -f '%Su' "$WORK_DIR" 2>/dev/null || stat -c '%U' "$WORK_DIR" 2>/dev/null || true)"
+        if [[ "$owner" == "root" ]]; then
+            info "If this is the agent's dedicated directory, fix ownership with: sudo chown -R \"$(id -un)\" \"$WORK_DIR\""
+        fi
+        return 1
+    fi
+}
+
 # ── Entry Point ──────────────────────────────────────────────────────────────
 case "${1:-help}" in
     run)        shift; cmd_run "$@" ;;
@@ -673,16 +770,18 @@ install_service() {
     local os="$1"
     local agent_name="$2"
     local java_path="$3"
+    local work_dir="$4"
 
     if [[ "$os" == "linux" ]]; then
-        install_systemd_service "$java_path"
+        install_systemd_service "$java_path" "$work_dir"
     elif [[ "$os" == "macos" ]]; then
-        install_launchd_service "$java_path"
+        install_launchd_service "$java_path" "$work_dir"
     fi
 }
 
 install_systemd_service() {
     local java_path="$1"
+    local work_dir="$2"
     local service_file="/etc/systemd/system/jenkins-agent.service"
 
     info "Installing systemd service..."
@@ -697,8 +796,8 @@ After=network.target
 Type=simple
 User=$(whoami)
 Group=$(id -gn)
-WorkingDirectory=${WORK_DIR}
-ExecStart=${java_path} -jar ${AGENT_JAR} -jnlpUrl \${JENKINS_URL}/computer/\${AGENT_NAME}/jenkins-agent.jnlp -secret \${AGENT_SECRET} -workDir ${WORK_DIR} -webSocket
+WorkingDirectory=${work_dir}
+ExecStart=${java_path} -jar ${AGENT_JAR} -url \${JENKINS_URL} -name \${AGENT_NAME} -secret \${AGENT_SECRET} -workDir ${work_dir} -jar-cache ${work_dir}/remoting/jarCache -webSocket
 Restart=on-failure
 RestartSec=10
 StandardOutput=append:${LOG_FILE}
@@ -718,6 +817,7 @@ EOF
 
 install_launchd_service() {
     local java_path="$1"
+    local work_dir="$2"
     local plist_dir="${HOME}/Library/LaunchAgents"
     local plist_file="${plist_dir}/com.jenkins.agent.plist"
 
@@ -737,12 +837,16 @@ install_launchd_service() {
         <string>${java_path}</string>
         <string>-jar</string>
         <string>${AGENT_JAR}</string>
-        <string>-jnlpUrl</string>
-        <string>__JENKINS_URL__/computer/__AGENT_NAME__/jenkins-agent.jnlp</string>
+        <string>-url</string>
+        <string>__JENKINS_URL__</string>
+        <string>-name</string>
+        <string>__AGENT_NAME__</string>
         <string>-secret</string>
         <string>__AGENT_SECRET__</string>
         <string>-workDir</string>
-        <string>${WORK_DIR}</string>
+        <string>${work_dir}</string>
+        <string>-jar-cache</string>
+        <string>${work_dir}/remoting/jarCache</string>
         <string>-webSocket</string>
     </array>
 
@@ -761,7 +865,7 @@ install_launchd_service() {
     <string>${LOG_FILE}</string>
 
     <key>WorkingDirectory</key>
-    <string>${WORK_DIR}</string>
+    <string>${work_dir}</string>
 
     <key>EnvironmentVariables</key>
     <dict>
