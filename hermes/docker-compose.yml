@@ -1,5 +1,4 @@
 services:
-  # Hermes Agent owns the profiles, configuration, sessions, skills, and memory.
   hermes-agent:
     image: "nousresearch/hermes-agent:latest"
     restart: unless-stopped
@@ -17,16 +16,13 @@ services:
       HERMES_DASHBOARD_PORT: "9119"
       API_SERVER_ENABLED: "${API_SERVER_ENABLED:-true}"
       API_SERVER_HOST: "0.0.0.0"
-      API_SERVER_KEY: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
+      API_SERVER_KEY: "${API_SERVER_KEY:-}"
       API_SERVER_CORS_ORIGINS: "*"
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
-      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
-      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
-      GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
-      GROQ_API_KEY: "${GROQ_API_KEY:-}"
-      MISTRAL_API_KEY: "${MISTRAL_API_KEY:-}"
       HERMES_DASHBOARD_OAUTH_CLIENT_ID: "${HERMES_DASHBOARD_OAUTH_CLIENT_ID:-}"
       HERMES_DASHBOARD_PUBLIC_URL: "${HERMES_DASHBOARD_PUBLIC_URL:-}"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_DASHBOARD_BASIC_AUTH_USERNAME:-}"
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD:-}"
+      HERMES_DASHBOARD_BASIC_AUTH_SECRET: "${HERMES_DASHBOARD_BASIC_AUTH_SECRET:-}"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8642/health && curl -fsS http://localhost:9119/api/status || exit 1"]
       interval: 10s
@@ -34,7 +30,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # Workspace is a client of Hermes Agent; it does not own a separate profile store.
   hermes-workspace:
     image: "ghcr.io/outsourc-e/hermes-workspace:latest"
     restart: unless-stopped
@@ -48,9 +43,11 @@ services:
       - hermes-data:/home/workspace/.hermes
     environment:
       HERMES_API_URL: http://hermes-agent:8642
-      HERMES_API_TOKEN: "${API_SERVER_KEY:?Set API_SERVER_KEY in Coolify}"
+      HERMES_API_TOKEN: "${API_SERVER_KEY:-}"
       HERMES_DASHBOARD_URL: http://hermes-agent:9119
-      HERMES_PASSWORD: "${HERMES_PASSWORD:?Set HERMES_PASSWORD in Coolify}"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: "${HERMES_DASHBOARD_BASIC_AUTH_USERNAME:-}"
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: "${HERMES_DASHBOARD_BASIC_AUTH_PASSWORD:-}"
+      HERMES_PASSWORD: "${HERMES_PASSWORD:-}"
       HERMES_HOME: /home/workspace/.hermes
       HERMES_WORKSPACE_DIR: /workspace
       COOKIE_SECURE: "${COOKIE_SECURE:-1}"
