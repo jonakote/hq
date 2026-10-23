@@ -26,6 +26,7 @@ services:
       GROQ_API_KEY: "${GROQ_API_KEY:-}"
       MISTRAL_API_KEY: "${MISTRAL_API_KEY:-}"
       HERMES_DASHBOARD_OAUTH_CLIENT_ID: "${HERMES_DASHBOARD_OAUTH_CLIENT_ID:-}"
+      HERMES_DASHBOARD_PUBLIC_URL: "${HERMES_DASHBOARD_PUBLIC_URL:-}"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8642/health && curl -fsS http://localhost:9119/api/status || exit 1"]
       interval: 10s
