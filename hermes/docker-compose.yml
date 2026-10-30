@@ -19,7 +19,7 @@ services:
       API_SERVER_ENABLED: "true"
       API_SERVER_HOST: 0.0.0.0
       API_SERVER_KEY: "${API_SERVER_KEY}"
-      API_SERVER_CORS_ORIGINS: ""
+      API_SERVER_CORS_ORIGINS: "*"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8642/health || exit 1"]
       interval: 10s
