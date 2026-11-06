@@ -96,7 +96,7 @@ prompt_confirm() {
         options="[Y/n]"
     fi
 
-    echo -en "${BOLD}${prompt}${NC} ${options}: "
+    echo -en "${BOLD}${prompt}${NC} ${options}: " >&2
     read -r result
 
     local answer="${result:-$default}"
@@ -284,8 +284,18 @@ main() {
 
     # Create directories
     info "Creating directories..."
-    mkdir -p "$INSTALL_DIR" "$work_dir" "$LOG_DIR"
+    mkdir -p "$INSTALL_DIR" "$work_dir" "$LOG_DIR" "${INSTALL_DIR}/.installer"
     ensure_work_dir_owner "$work_dir" || exit 1
+
+    # Save a copy of this installer so 'jenkins-agent configure' can re-run it
+    info "Saving installer for future reconfiguration..."
+    if [[ -f "${BASH_SOURCE[0]}" ]]; then
+        cp "${BASH_SOURCE[0]}" "${INSTALL_DIR}/.installer/install.sh"
+        chmod +x "${INSTALL_DIR}/.installer/install.sh"
+    else
+        warn "Could not locate this script on disk (piped execution?)."
+        warn "'jenkins-agent configure' will need install.sh re-downloaded manually."
+    fi
 
     # Download agent.jar
     local jnlp_url="${jenkins_url}/jnlpJars/agent.jar"
