@@ -8,6 +8,14 @@ services:
     expose:
       - "8888" # REST + MCP API
     environment:
+      # Coolify magic var: on deploy, Coolify generates a domain for this
+      # service routed to port 8888 and wires its proxy (Traefik) to it —
+      # no value needed here. The resulting hostname shows up in the
+      # Coolify UI (Resource > hindsight-api > Domains) and/or as
+      # ${SERVICE_FQDN_HINDSIGHT_API_8888} if referenced elsewhere. That's
+      # the api_url Hermes's Hindsight memory-provider plugin needs for
+      # local_external mode.
+      SERVICE_FQDN_HINDSIGHT_API_8888: ""
       # "postgres" resolves via the shared hq-postgres network (see
       # ../postgres/). Role/db + the vector extension are provisioned by
       # ../postgres/init/10-app-databases.sh.
@@ -50,6 +58,9 @@ services:
     expose:
       - "9999" # Dashboard UI
     environment:
+      # Same Coolify pattern as hindsight-api — generates a domain for the
+      # dashboard UI, routed to port 9999.
+      SERVICE_FQDN_HINDSIGHT_CONTROL_PLANE_9999: ""
       # Password for the Control Plane dashboard login.
       HINDSIGHT_CP_ACCESS_KEY: "${HINDSIGHT_CP_ACCESS_KEY:?HINDSIGHT_CP_ACCESS_KEY must be set}"
       HINDSIGHT_CP_DATAPLANE_API_URL: "http://hindsight-api:8888"
