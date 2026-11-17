@@ -1,0 +1,33 @@
+services:
+  hindsight:
+    # All-in-one image: bundles an embedded Postgres (pgvector) plus the
+    # local embedding/reranker models, so no external DB or LLM key is
+    # strictly required — matches this repo's self-contained-per-folder
+    # pattern (see ../grafana, ../hermes). Needs >=2GB RAM.
+    image: "ghcr.io/vectorize-io/hindsight:${HINDSIGHT_VERSION:-latest}"
+    restart: unless-stopped
+    expose:
+      - "8888" # API + Control Plane
+      - "9999" # MCP endpoint
+    volumes:
+      - hindsight-data:/home/hindsight/.pg0
+    environment:
+      # "none" runs Hindsight as a semantic-only store on bundled local
+      # models. Set a provider + key below to enable fact extraction/reflect.
+      HINDSIGHT_API_LLM_PROVIDER: "${HINDSIGHT_API_LLM_PROVIDER:-none}"
+      HINDSIGHT_API_LLM_API_KEY: "${HINDSIGHT_API_LLM_API_KEY:-}"
+      # Required — bearer token every REST/MCP request must present.
+      HINDSIGHT_API_TENANT_API_KEY: "${HINDSIGHT_API_TENANT_API_KEY:?HINDSIGHT_API_TENANT_API_KEY must be set}"
+      # Required — password for the Control Plane dashboard login.
+      HINDSIGHT_CP_ACCESS_KEY: "${HINDSIGHT_CP_ACCESS_KEY:?HINDSIGHT_CP_ACCESS_KEY must be set}"
+    healthcheck:
+      # /health/live performs no DB access (liveness only) — see
+      # https://hindsight.vectorize.io/developer/monitoring
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8888/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  hindsight-data:
