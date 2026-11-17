@@ -1,18 +1,33 @@
-version: "3.8"
-
 services:
 
   postgres:
-    image: postgres:18
+    # pgvector/pgvector is a drop-in postgres image (same entrypoint/env
+    # vars) with the pgvector extension available. Needed because hindsight/
+    # creates `CREATE EXTENSION vector` in its own database; every other app
+    # sharing this instance is unaffected and doesn't have to use it.
+    image: pgvector/pgvector:pg18
     environment:
-      POSTGRES_USERNAME: "${POSTGRES_USERNAME:-postgres}"
+      # Fixed a latent bug here: the official postgres image only reads
+      # POSTGRES_USER, not POSTGRES_USERNAME — this var was silently
+      # ignored and the superuser was always "postgres" regardless of what
+      # was set. Renamed so it actually takes effect.
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
     volumes:
       - postgres-data:/var/lib/postgresql
+      # Per-app role+database provisioning — see init/README.md. Only runs
+      # on a brand-new, empty postgres-data volume (Postgres convention).
+      - ./init:/docker-entrypoint-initdb.d:ro
     expose:
       - "5432"
+    networks:
+      default:
+      # Shared network other stacks (paperclip/, hindsight/, privatebin/)
+      # join to reach this instance by hostname "postgres". Explicitly
+      # named so it isn't prefixed with this project's name.
+      hq-postgres:
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,6 +48,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+
+networks:
+  hq-postgres:
+    name: hq-postgres
 
 volumes:
   postgres-data:

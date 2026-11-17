@@ -1,0 +1,45 @@
+services:
+  privatebin:
+    # Dedicated PostgreSQL/MariaDB/MySQL-backend image (lighter than the
+    # all-in-one nginx-fpm-alpine, which also bundles S3/GCS drivers we
+    # don't need) — our self-hosted hastebin/pastebin alternative.
+    image: "privatebin/pdo:${PRIVATEBIN_VERSION:-stable}"
+    restart: unless-stopped
+    read_only: true
+    expose:
+      - "8080"
+    tmpfs:
+      - /tmp:nodev,noexec,mode=1777
+      - /run:nodev,exec,mode=1777
+    environment:
+      # Picked up by conf.php's ${STORAGE_*} references — see that file's
+      # header comment. "postgres" resolves via the shared hq-postgres
+      # network (see ../postgres/). Role/db provisioned by
+      # ../postgres/init/10-app-databases.sh.
+      STORAGE_HOST: postgres
+      STORAGE_LOGIN: privatebin
+      STORAGE_PASSWORD: "${PRIVATEBIN_DB_PASSWORD:-privatebin}"
+      STORAGE_CONTAINER: privatebin
+    volumes:
+      - ./conf.php:/srv/cfg/conf.php:ro
+      # Server salt + traffic limiter state; no paste data lives here once
+      # using the Database backend, but the image still expects this path.
+      - privatebin-data:/srv/data
+    networks:
+      - hq-postgres
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+networks:
+  # Owned by ../postgres/docker-compose.yml; this stack only joins it.
+  # Bring postgres/ up first (or at least once) so the role/db from its
+  # init script exist before privatebin tries to connect.
+  hq-postgres:
+    external: true
+
+volumes:
+  privatebin-data:

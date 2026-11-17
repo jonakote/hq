@@ -1,25 +1,27 @@
 services:
-  hindsight:
-    # All-in-one image: bundles an embedded Postgres (pgvector) plus the
-    # local embedding/reranker models, so no external DB or LLM key is
-    # strictly required — matches this repo's self-contained-per-folder
-    # pattern (see ../grafana, ../hermes). Needs >=2GB RAM.
-    image: "ghcr.io/vectorize-io/hindsight:${HINDSIGHT_VERSION:-latest}"
+  hindsight-api:
+    # Switched from the all-in-one bundled-Postgres image to the split
+    # services (api/worker/control-plane) so it can point at the shared
+    # ../postgres/ instance instead of carrying its own embedded database.
+    image: "ghcr.io/vectorize-io/hindsight-api:${HINDSIGHT_VERSION:-latest}"
     restart: unless-stopped
     expose:
-      - "8888" # API + Control Plane
-      - "9999" # MCP endpoint
-    volumes:
-      - hindsight-data:/home/hindsight/.pg0
+      - "8888" # REST + MCP API
     environment:
+      # "postgres" resolves via the shared hq-postgres network (see
+      # ../postgres/). Role/db + the vector extension are provisioned by
+      # ../postgres/init/10-app-databases.sh.
+      HINDSIGHT_API_DATABASE_URL: "postgresql://hindsight:${HINDSIGHT_DB_PASSWORD:-hindsight}@postgres:5432/hindsight"
       # "none" runs Hindsight as a semantic-only store on bundled local
       # models. Set a provider + key below to enable fact extraction/reflect.
       HINDSIGHT_API_LLM_PROVIDER: "${HINDSIGHT_API_LLM_PROVIDER:-none}"
       HINDSIGHT_API_LLM_API_KEY: "${HINDSIGHT_API_LLM_API_KEY:-}"
       # Required — bearer token every REST/MCP request must present.
       HINDSIGHT_API_TENANT_API_KEY: "${HINDSIGHT_API_TENANT_API_KEY:?HINDSIGHT_API_TENANT_API_KEY must be set}"
-      # Required — password for the Control Plane dashboard login.
-      HINDSIGHT_CP_ACCESS_KEY: "${HINDSIGHT_CP_ACCESS_KEY:?HINDSIGHT_CP_ACCESS_KEY must be set}"
+      # A dedicated worker container handles retain/consolidation jobs.
+      HINDSIGHT_API_WORKER_ENABLED: "false"
+    networks:
+      - hq-postgres
     healthcheck:
       # /health/live performs no DB access (liveness only) — see
       # https://hindsight.vectorize.io/developer/monitoring
@@ -27,7 +29,42 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 45s
+      start_period: 30s
 
-volumes:
-  hindsight-data:
+  hindsight-worker:
+    image: "ghcr.io/vectorize-io/hindsight-api:${HINDSIGHT_VERSION:-latest}"
+    command: ["hindsight-worker", "--worker-id", "worker-1"]
+    restart: unless-stopped
+    environment:
+      HINDSIGHT_API_DATABASE_URL: "postgresql://hindsight:${HINDSIGHT_DB_PASSWORD:-hindsight}@postgres:5432/hindsight"
+      HINDSIGHT_API_LLM_PROVIDER: "${HINDSIGHT_API_LLM_PROVIDER:-none}"
+      HINDSIGHT_API_LLM_API_KEY: "${HINDSIGHT_API_LLM_API_KEY:-}"
+    networks:
+      - hq-postgres
+    depends_on:
+      - hindsight-api
+
+  hindsight-control-plane:
+    image: "ghcr.io/vectorize-io/hindsight-control-plane:${HINDSIGHT_VERSION:-latest}"
+    restart: unless-stopped
+    expose:
+      - "9999" # Dashboard UI
+    environment:
+      # Password for the Control Plane dashboard login.
+      HINDSIGHT_CP_ACCESS_KEY: "${HINDSIGHT_CP_ACCESS_KEY:?HINDSIGHT_CP_ACCESS_KEY must be set}"
+      HINDSIGHT_CP_DATAPLANE_API_URL: "http://hindsight-api:8888"
+    depends_on:
+      - hindsight-api
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9999/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  # Owned by ../postgres/docker-compose.yml; this stack only joins it.
+  # Bring postgres/ up first (or at least once) so the role/db from its
+  # init script exist before hindsight tries to connect.
+  hq-postgres:
+    external: true

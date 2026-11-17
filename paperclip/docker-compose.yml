@@ -1,27 +1,14 @@
 services:
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: "${POSTGRES_USER:-paperclip}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-paperclip}"
-      POSTGRES_DB: "${POSTGRES_DB:-paperclip}"
-    volumes:
-      - paperclip-db-data:/var/lib/postgresql/data
-    expose:
-      - "5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-paperclip} -d ${POSTGRES_DB:-paperclip}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   paperclip:
     image: "ghcr.io/paperclipai/paperclip:${PAPERCLIP_VERSION:-latest}"
     restart: unless-stopped
     expose:
       - "3100"
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-paperclip}:${POSTGRES_PASSWORD:-paperclip}@db:5432/${POSTGRES_DB:-paperclip}"
+      # "postgres" resolves via the shared hq-postgres network (see
+      # ../postgres/). Role/db provisioned by
+      # ../postgres/init/10-app-databases.sh.
+      DATABASE_URL: "postgres://paperclip:${PAPERCLIP_DB_PASSWORD:-paperclip}@postgres:5432/paperclip"
       PORT: "3100"
       SERVE_UI: "true"
       # authenticated+private is the safe default: every page needs login,
@@ -35,9 +22,8 @@ services:
       PAPERCLIP_TOOL_ACTION_SIGNING_SECRET: "${PAPERCLIP_TOOL_ACTION_SIGNING_SECRET:-}"
     volumes:
       - paperclip-data:/paperclip
-    depends_on:
-      db:
-        condition: service_healthy
+    networks:
+      - hq-postgres
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3100/api/health"]
       interval: 15s
@@ -45,6 +31,12 @@ services:
       retries: 5
       start_period: 30s
 
+networks:
+  # Owned by ../postgres/docker-compose.yml; this stack only joins it.
+  # Bring postgres/ up first (or at least once) so the role/db from its
+  # init script exist before paperclip tries to connect.
+  hq-postgres:
+    external: true
+
 volumes:
-  paperclip-db-data:
   paperclip-data:
