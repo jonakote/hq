@@ -1,14 +1,11 @@
 services:
   paperclip:
-    image: "ghcr.io/paperclipai/paperclip:${PAPERCLIP_VERSION:-latest}"
+    image: "ghcr.io/paperclipai/paperclip:latest"
     restart: unless-stopped
     expose:
       - "3100"
     environment:
-      # "postgres" resolves via the shared hq-postgres network (see
-      # ../postgres/). Role/db provisioned by
-      # ../postgres/init/10-app-databases.sh.
-      DATABASE_URL: "postgres://paperclip:${PAPERCLIP_DB_PASSWORD:-paperclip}@postgres:5432/paperclip"
+      DATABASE_URL: "postgres://${POSTGRES_DB_USER}:${PAPERCLIP_DB_PASSWORD:-paperclip}@postgres:5432/paperclip"
       PORT: "3100"
       SERVE_UI: "true"
       # authenticated+private is the safe default: every page needs login,
@@ -17,7 +14,7 @@ services:
       PAPERCLIP_DEPLOYMENT_EXPOSURE: "${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}"
       PAPERCLIP_PUBLIC_URL: "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
       # Required — generate with: openssl rand -hex 32
-      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set — generate with: openssl rand -hex 32}"
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:-}"
       # Signs approval-gated tool actions; optional but recommended in prod.
       PAPERCLIP_TOOL_ACTION_SIGNING_SECRET: "${PAPERCLIP_TOOL_ACTION_SIGNING_SECRET:-}"
     volumes:

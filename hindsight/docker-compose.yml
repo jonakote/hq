@@ -1,25 +1,11 @@
 services:
   hindsight-api:
-    # Switched from the all-in-one bundled-Postgres image to the split
-    # services (api/worker/control-plane) so it can point at the shared
-    # ../postgres/ instance instead of carrying its own embedded database.
-    image: "ghcr.io/vectorize-io/hindsight-api:${HINDSIGHT_VERSION:-latest}"
+    image: "ghcr.io/vectorize-io/hindsight-api:latest"
     restart: unless-stopped
     expose:
-      - "8888" # REST + MCP API
+      - "8888"
     environment:
-      # Coolify magic var: on deploy, Coolify generates a domain for this
-      # service routed to port 8888 and wires its proxy (Traefik) to it —
-      # no value needed here. The resulting hostname shows up in the
-      # Coolify UI (Resource > hindsight-api > Domains) and/or as
-      # ${SERVICE_FQDN_HINDSIGHT_API_8888} if referenced elsewhere. That's
-      # the api_url Hermes's Hindsight memory-provider plugin needs for
-      # local_external mode.
-      SERVICE_FQDN_HINDSIGHT_API_8888: ""
-      # "postgres" resolves via the shared hq-postgres network (see
-      # ../postgres/). Role/db + the vector extension are provisioned by
-      # ../postgres/init/10-app-databases.sh.
-      HINDSIGHT_API_DATABASE_URL: "postgresql://hindsight:${HINDSIGHT_DB_PASSWORD:-hindsight}@postgres:5432/hindsight"
+      HINDSIGHT_API_DATABASE_URL: "postgresql://${POSTGRES_DB_PASSWORD}:${POSTGRES_DB_PASSWORD}@postgres:5432/hindsight"
       # "none" runs Hindsight as a semantic-only store on bundled local
       # models. Set a provider + key below to enable fact extraction/reflect.
       HINDSIGHT_API_LLM_PROVIDER: "${HINDSIGHT_API_LLM_PROVIDER:-none}"
@@ -40,11 +26,11 @@ services:
       start_period: 30s
 
   hindsight-worker:
-    image: "ghcr.io/vectorize-io/hindsight-api:${HINDSIGHT_VERSION:-latest}"
+    image: "ghcr.io/vectorize-io/hindsight-api:latest"
     command: ["hindsight-worker", "--worker-id", "worker-1"]
     restart: unless-stopped
     environment:
-      HINDSIGHT_API_DATABASE_URL: "postgresql://hindsight:${HINDSIGHT_DB_PASSWORD:-hindsight}@postgres:5432/hindsight"
+      HINDSIGHT_API_DATABASE_URL: "postgresql://${POSTGRES_DB_USER}:${POSTGRES_DB_PASSWORD}@postgres:5432/hindsight"
       HINDSIGHT_API_LLM_PROVIDER: "${HINDSIGHT_API_LLM_PROVIDER:-none}"
       HINDSIGHT_API_LLM_API_KEY: "${HINDSIGHT_API_LLM_API_KEY:-}"
     networks:
@@ -53,16 +39,12 @@ services:
       - hindsight-api
 
   hindsight-control-plane:
-    image: "ghcr.io/vectorize-io/hindsight-control-plane:${HINDSIGHT_VERSION:-latest}"
+    image: "ghcr.io/vectorize-io/hindsight-control-plane:latest"
     restart: unless-stopped
     expose:
       - "9999" # Dashboard UI
     environment:
-      # Same Coolify pattern as hindsight-api — generates a domain for the
-      # dashboard UI, routed to port 9999.
-      SERVICE_FQDN_HINDSIGHT_CONTROL_PLANE_9999: ""
-      # Password for the Control Plane dashboard login.
-      HINDSIGHT_CP_ACCESS_KEY: "${HINDSIGHT_CP_ACCESS_KEY:?HINDSIGHT_CP_ACCESS_KEY must be set}"
+      HINDSIGHT_CP_ACCESS_KEY: "${HINDSIGHT_CP_ACCESS_KEY:-}"
       HINDSIGHT_CP_DATAPLANE_API_URL: "http://hindsight-api:8888"
     depends_on:
       - hindsight-api
