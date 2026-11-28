@@ -5,7 +5,7 @@ services:
     expose:
       - "3100"
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_DB_USER}:${PAPERCLIP_DB_PASSWORD:-paperclip}@postgres:5432/paperclip"
+      DATABASE_URL: "postgres://${POSTGRES_DB_USER}:${PAPERCLIP_DB_PASSWORD}@postgres:5432/paperclip"
       PORT: "3100"
       SERVE_UI: "true"
       # authenticated+private is the safe default: every page needs login,

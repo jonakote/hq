@@ -1,0 +1,54 @@
+# RustDesk needs its own TCP/UDP ports reachable directly by client software
+# (NAT hole-punching + relay traffic) — this is not HTTP, so Coolify's
+# SERVICE_FQDN magic-var/Traefik routing doesn't apply here. `ports:` is used
+# intentionally for this one service, as an exception to the repo's usual
+# `expose:`-only convention; see hq-platform skill notes if revisiting this.
+#
+# RUSTDESK_RELAY_HOST must be set to this host's public IP or hostname so
+# clients can find the relay (hbbr) via hbbs. Generate no secret — RustDesk
+# OSS has no admin auth; it creates its own keypair (id_ed25519*) in the data
+# volume on first boot. Back that volume up if you need the same server key
+# after a migration (clients would otherwise show a "server key changed"
+# warning on their next connect).
+
+services:
+  hbbs:
+    container_name: rustdesk-hbbs
+    image: rustdesk/rustdesk-server:latest
+    command: hbbs -r "${RUSTDESK_RELAY_HOST:?set to this host's public IP or hostname, e.g. relay.example.com:21117}"
+    ports:
+      - "21115:21115"
+      - "21116:21116"
+      - "21116:21116/udp"
+      - "21118:21118"
+    volumes:
+      - rustdesk-data:/root
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/21116' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - hbbr
+    restart: unless-stopped
+
+  hbbr:
+    container_name: rustdesk-hbbr
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr
+    ports:
+      - "21117:21117"
+      - "21119:21119"
+    volumes:
+      - rustdesk-data:/root
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/21117' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  rustdesk-data:

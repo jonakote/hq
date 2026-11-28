@@ -16,6 +16,7 @@ the host/Portainer level.
 | `paperclip/` | [Paperclip](https://github.com/paperclipai/paperclip) | Orchestrates a team of AI agents running tasks for a company (org chart, budgets, approvals). |
 | `hindsight/` | [Hindsight](https://github.com/vectorize-io/hindsight) | Long-term memory engine for AI agents (retain/recall/reflect). |
 | `privatebin/` | [PrivateBin](https://github.com/PrivateBin) | Self-hosted, zero-knowledge-encrypted pastebin — our Hastebin alternative. |
+| `rustdesk/` | [RustDesk Server](https://github.com/rustdesk/rustdesk-server) | Self-hosted ID/rendezvous (hbbs) + relay (hbbr) server for RustDesk remote desktop clients. Uses `ports:` instead of `expose:` — see its compose file comment. |
 
 ## Shared Postgres
 

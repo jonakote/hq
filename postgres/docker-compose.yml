@@ -11,8 +11,8 @@ services:
       # POSTGRES_USER, not POSTGRES_USERNAME — this var was silently
       # ignored and the superuser was always "postgres" regardless of what
       # was set. Renamed so it actually takes effect.
-      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
     volumes:
       - postgres-data:/var/lib/postgresql
       # Per-app role+database provisioning — see init/README.md. Only runs
@@ -35,8 +35,8 @@ services:
   pgadmin:
     image: dpage/pgadmin4:9.17
     environment:
-      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@pgadmin.com}"
-      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD:-admin}"
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
     volumes:
       - pgadmin-data:/var/lib/pgadmin
     expose:
